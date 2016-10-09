@@ -6,17 +6,9 @@ import sublime
 import sublime_plugin
 
 ST3 = int(sublime.version()) >= 3000
-DEBUGGING = True
+DEBUGGING = False
 PLUGIN_NAME = 'Polymer Sublime Plugin'
 
-try:
-    MDPOPUPS_INSTALLED = True
-    import mdpopups
-    # to be sure check, that ST also support popups
-    if int(sublime.version()) < 3080:
-        MDPOPUPS_INSTALLED = False
-except:
-    MDPOPUPS_INSTALLED = False
 
 class Settings:
   config = None
@@ -42,6 +34,10 @@ class Settings:
   @staticmethod
   def get_debounce_delay():
     return Settings.get('debounce_delay')
+
+  @staticmethod
+  def get_static_completions():
+    return Settings.get('static_completions')
 
 
 class Utils:
@@ -107,7 +103,8 @@ class Bridge:
 
   @staticmethod
   def send_message(process, input):
-    if DEBUGGING: print('send_message: ', input)
+    if DEBUGGING:
+      print('send_message: ', input)
     process.stdin.write((input + '\n').encode('utf8'))
     process.stdin.flush()
     out = process.stdout.readline()
@@ -247,8 +244,6 @@ class PolymerSublimePlugin:
 
   @staticmethod
   def show_popup(view, point):
-    if not MDPOPUPS_INSTALLED:
-      return
     if DEBUGGING:
       print('show_popup')
 
@@ -263,8 +258,7 @@ class PolymerSublimePlugin:
         break
     
     if warning_msg != '':
-      mdpopups.show_popup(
-          view, '**Polymer**: ```%s```' % warning_msg, location=location, 
+      view.show_popup('Polymer Analyzer: %s' % warning_msg, location=location, 
           flags=sublime.HIDE_ON_MOUSE_MOVE_AWAY, max_width=int(view.viewport_extent()[0]))
 
 
@@ -282,6 +276,11 @@ class PolymerAnalyzerEvents(sublime_plugin.EventListener):
     if hover_zone == sublime.HOVER_GUTTER and not view.is_popup_visible():
       PolymerSublimePlugin.show_popup(view, point)
 
+    if hover_zone == sublime.HOVER_TEXT:
+      print('hover text')
+
+  def on_query_completions(self, view, prefix, locations):
+    return Settings.get_static_completions()['tags']
 
 def plugin_loaded():
   Utils.debounce('plugin_loaded', PolymerSublimePlugin.plugin_loaded)
