@@ -9,10 +9,12 @@
   "warning_icon": "warning.png",
   "static_completions": {
     "tags": [
-      ["dom-repeat v1", "<template is=\"dom-repeat\" items=\"${1:[[items]]}\">\n\t${0:[[item.name]]}\n</dom-repeat>"],
-      ["dom-repeat v2", "<dom-repeat items=\"${1:[[items]]}\">\n\t<template>\n\t\t${0:[[item.name]]}\n\t</template>\n</dom-repeat>"],
-      ["dom-if v1", "<template is=\"dom-if\" if=\"${1:[[conditional]]}\">\n\t${0}\n</dom-repeat>"],
-      ["dom-if v2", "<dom-if if=\"${1:[[conditional]]}\">\n\t<template>\n\t\t${0}\n\t</template>\n</dom-repeat>"]
+      ["dom-repeat v1", "<template is=\"dom-repeat\" items=\"[[${1:items}]]\">\n\t${0:[[item.name]]}\n</dom-repeat>"],
+      ["dom-repeat v2", "<dom-repeat items=\"[[${1:items}]]\">\n\t<template>\n\t\t${0:[[item.name]]}\n\t</template>\n</dom-repeat>"],
+      ["dom-if v1", "<template is=\"dom-if\" if=\"[[${1:conditional}]]\">\n\t${0}\n</template>"],
+      ["dom-if v2", "<dom-if if=\"[[${1:conditional}]]\">\n\t<template>\n\t\t${0}\n\t</template>\n</dom-if>"],
+      ["dom-module v1", "<dom-module id=\"${1:x-foo}\">\n\t<template>\n\t\t<style>\n\t\t\t:host {\n\t\t\t\tdisplay: block;\n\t\t\t}\n\t\t</style>\n\t\t${0:Hello world}\n\t</template>\n\t<script>\n\t\tPolymer({\n\t\t\tis: '$1'\n\t\t});\n\t</script>\n</dom-module>"],
+      ["dom-module v2", "<dom-module id=\"${1:x-foo}\">\n\t<template>\n\t\t<style>\n\t\t\t:host {\n\t\t\t\tdisplay: block;\n\t\t\t}\n\t\t</style>\n\t\t${0:Hello world}\n\t</template>\n\t<script>\n\t\tPolymer({\n\t\t\tis: '$1'\n\t\t});\n\t</script>\n</dom-module>"]
     ]
   }
 }
