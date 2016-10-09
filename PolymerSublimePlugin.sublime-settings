@@ -1,0 +1,10 @@
+{
+  "node_path": {
+    "osx": "/usr/local/bin/node",
+    "linux": "/usr/bin/nodejs",
+    "windows": "C:/Program Files/nodejs/node.exe"
+  },
+  "polymer_analyzer": "/node_modules/polymer-analyzer/lib/editor-service/polymer-editor-server",
+  "debounce_delay": 200,
+  "warning_icon": "warning.png"
+}

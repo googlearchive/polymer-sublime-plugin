@@ -1,0 +1,10 @@
+{
+  "name": "polymer-sublime-plugin",
+  "version": "0.0.1",
+  "description": "Provides linting, autocompletion, and more for web components.",
+  "author": "The Polymer Authors",
+  "license": "BSD-3-Clause",
+  "dependencies": {
+    "polymer-analyzer": "^2.0.0-alpha.9"
+  }
+}
