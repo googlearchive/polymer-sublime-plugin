@@ -9,7 +9,7 @@ import sublime_plugin
 
 ST3 = int(sublime.version()) >= 3000
 DEBUGGING = False
-PLUGIN_NAME = 'Polymer Sublime Plugin'
+PLUGIN_NAME = 'polymer-sublime-plugin'
 
 
 class Settings:
@@ -18,7 +18,7 @@ class Settings:
   @staticmethod
   def get(key):
     if Settings.config is None:
-      Settings.config = sublime.load_settings('%s.sublime-settings' % PLUGIN_NAME.replace(' ', ''))
+      Settings.config = sublime.load_settings('%s.sublime-settings' % PLUGIN_NAME)
     return Settings.config.get(key)
 
   @staticmethod
