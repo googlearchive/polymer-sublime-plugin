@@ -274,24 +274,34 @@ class PolymerSublimePlugin:
     if not locations:
       return
     scope_name = view.scope_name(locations[0]).strip()
+    line, column = view.rowcol(locations[0])
     completions = []
+    
     if scope_name == 'text.html.basic':
       completions = completions + Settings.get_static_completions()['tags']
+      definition = Bridge.get_definition(view.file_name(), line, column)
 
-    line, column = view.rowcol(locations[0])
-    definition = Bridge.get_definition(view.file_name(), line, column)
+      if definition is not None:
+        if 'elements' in definition:
+          for el in definition['elements']:
+            tagname = el['tagname']
+            if tagname.startswith('dom-'):
+              continue
+            # Try to extract the snippet from the description.
+            m_start = re.search(r'<%s(.*)>' % tagname, el['description'])
+            m_end = re.search(r'</%s>' % tagname, el['description'])
+            if m_start and m_end:
+              completions.append([tagname, el['description'][m_start.start():m_end.end()]])
+            else:
+              completions.append([tagname, el['expandTo']])
+    elif 'text.html.basic meta.tag.custom.html' in scope_name:
+      definition = Bridge.get_definition(view.file_name(), line, column)
 
-    if definition is not None and 'elements' in definition:
-      for element in definition['elements']:
-        tagname = element['tagname']
-        if tagname.startswith('dom-'):
-          continue
-        m_start = re.search(r'<%s(.*)>' % tagname, element['description'])
-        m_end = re.search(r'</%s>' % tagname, element['description'])
-        if m_start and m_end:
-          completions.append([tagname, element['description'][m_start.start():m_end.end()]])
-        else:
-          completions.append([tagname, element['expandTo']])
+      if 'attributes' in definition:
+        for attr in definition['attributes']:
+          # If the type isn't a boolean then add `attr=""` otherwise add `attr`.
+          completions.append([attr['name'],
+              attr['name'] if attr['type'] == 'boolean' else '%s="$0"' % attr['name']])
     return completions
 
 class PolymerAnalyzerEvents(sublime_plugin.EventListener):
