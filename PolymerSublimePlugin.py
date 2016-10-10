@@ -28,7 +28,7 @@ class Settings:
   @staticmethod
   def get_analyzer_path():
     return os.path.dirname(os.path.realpath(__file__)) + Settings.get('polymer_analyzer')
-  
+
   @staticmethod
   def get_warning_icon():
     return 'Packages/%s/%s' % (PLUGIN_NAME, Settings.get('warning_icon'))
@@ -264,9 +264,9 @@ class PolymerSublimePlugin:
       if location == start_position:
         warning_msg = warning['message']
         break
-    
+
     if warning_msg != '':
-      view.show_popup('Polymer Analyzer: %s' % warning_msg, location=location, 
+      view.show_popup('Polymer Analyzer: %s' % warning_msg, location=location,
           flags=sublime.HIDE_ON_MOUSE_MOVE_AWAY, max_width=int(view.viewport_extent()[0]))
 
   @staticmethod
@@ -276,7 +276,7 @@ class PolymerSublimePlugin:
     scope_name = view.scope_name(locations[0]).strip()
     line, column = view.rowcol(locations[0])
     completions = []
-    
+
     if scope_name == 'text.html.basic':
       completions = completions + Settings.get_static_completions()['tags']
       definition = Bridge.get_definition(view.file_name(), line, column)
@@ -301,7 +301,8 @@ class PolymerSublimePlugin:
         for attr in definition['attributes']:
           # If the type isn't a boolean then add `attr=""` otherwise add `attr`.
           completions.append([attr['name'],
-              attr['name'] if attr['type'] == 'boolean' else '%s="$0"' % attr['name']])
+              attr['name'] if attr['type'] == 'boolean'
+              else '%s="${0:%s}"' % (attr['name'], attr['type'])])
     return completions
 
 class PolymerAnalyzerEvents(sublime_plugin.EventListener):
