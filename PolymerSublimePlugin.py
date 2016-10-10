@@ -1,6 +1,8 @@
 import os
+import re
 import subprocess
 import json
+from functools import partial
 
 import sublime
 import sublime_plugin
@@ -83,6 +85,13 @@ class Bridge:
                     stderr=subprocess.STDOUT)
 
   @staticmethod
+  def kill(project_path):
+    if project_path not in Bridge.processes:
+      return
+    Bridge.processes[project_path].kill()
+    del Bridge.processes[project_path]
+
+  @staticmethod
   def get_project_process(project_path):
     if project_path not in Bridge.processes:
       process = Bridge.create_process()
@@ -124,8 +133,14 @@ class Bridge:
     return Bridge.encode_command({'kind': 'getWarningsFor', 'localPath': local_path})
 
   @staticmethod
-  def file_changed_command(local_path, contents):
-    return Bridge.encode_command({'kind': 'fileChanged', 'localPath': local_path, 'contents': contents})
+  def file_changed_command(contents, local_path):
+    return Bridge.encode_command({'kind': 'fileChanged', 'localPath': local_path,
+        'contents': contents})
+
+  @staticmethod
+  def get_definition_command(line, column, local_path):
+    return Bridge.encode_command({'kind': 'getTypeaheadCompletionsFor', 'localPath': local_path,
+        'position': {'line': line, 'column': column}})
 
   @staticmethod
   def get_project_path_from(file_name):
@@ -135,7 +150,7 @@ class Bridge:
     return None
 
   @staticmethod
-  def get_warnings(file_name):
+  def execute_command(file_name, fn):
     if file_name is None:
       return
     project_path = Bridge.get_project_path_from(file_name)
@@ -143,30 +158,23 @@ class Bridge:
       return
     process = Bridge.processes[project_path]
     relative_file_name = os.path.relpath(file_name, project_path)
-    out = Bridge.send_message(process, Bridge.get_warnings_command(relative_file_name))
-    if out['kind'] == 'resolution':
+    out = Bridge.send_message(process, fn(relative_file_name))
+    if out['kind'] == 'resolution' and 'resolution' in out:
       return out['resolution']
     else:
       return {}
 
   @staticmethod
-  def notify_file_changed(file_name, contents):
-    if file_name is None:
-      return False
-    project_path = Bridge.get_project_path_from(file_name)
-    if project_path is None:
-      return False
-    process = Bridge.processes[project_path]
-    relative_file_name = os.path.relpath(file_name, project_path)
-    out = Bridge.send_message(process, Bridge.file_changed_command(relative_file_name, contents))
-    return out['kind'] == 'resolution'
+  def get_warnings(file_name):
+    return Bridge.execute_command(file_name, Bridge.get_warnings_command)
 
   @staticmethod
-  def kill(project_path):
-    if project_path not in Bridge.processes:
-      return
-    Bridge.processes[project_path].kill()
-    del Bridge.processes[project_path]
+  def notify_file_changed(file_name, contents):
+    return Bridge.execute_command(file_name, partial(Bridge.file_changed_command, contents))
+
+  @staticmethod
+  def get_definition(file_name, line, column):
+    return Bridge.execute_command(file_name, partial(Bridge.get_definition_command, line, column))
 
 
 class PolymerSublimePlugin:
@@ -261,6 +269,30 @@ class PolymerSublimePlugin:
       view.show_popup('Polymer Analyzer: %s' % warning_msg, location=location, 
           flags=sublime.HIDE_ON_MOUSE_MOVE_AWAY, max_width=int(view.viewport_extent()[0]))
 
+  @staticmethod
+  def get_query_completions(view, prefix, locations):
+    if not locations:
+      return
+    scope_name = view.scope_name(locations[0]).strip()
+    completions = []
+    if scope_name == 'text.html.basic':
+      completions = completions + Settings.get_static_completions()['tags']
+
+    line, column = view.rowcol(locations[0])
+    definition = Bridge.get_definition(view.file_name(), line, column)
+
+    if definition is not None and 'elements' in definition:
+      for element in definition['elements']:
+        tagname = element['tagname']
+        if tagname == 'dom-if' or tagname == 'dom-repeat' or tagname == 'dom-module':
+          continue
+        m_start = re.search(r'<%s(.*)>' % tagname, element['description'])
+        m_end = re.search(r'</%s>' % tagname, element['description'])
+        if m_start and m_end:
+          completions.append([tagname, element['description'][m_start.start():m_end.end()]])
+        else:
+          completions.append([tagname, element['expandTo']])
+    return completions
 
 class PolymerAnalyzerEvents(sublime_plugin.EventListener):
   def on_activated_async(self, view):
@@ -276,11 +308,8 @@ class PolymerAnalyzerEvents(sublime_plugin.EventListener):
     if hover_zone == sublime.HOVER_GUTTER and not view.is_popup_visible():
       PolymerSublimePlugin.show_popup(view, point)
 
-    if hover_zone == sublime.HOVER_TEXT:
-      print('hover text')
-
   def on_query_completions(self, view, prefix, locations):
-    return Settings.get_static_completions()['tags']
+    return PolymerSublimePlugin.get_query_completions(view, prefix, locations)
 
 def plugin_loaded():
   Utils.debounce('plugin_loaded', PolymerSublimePlugin.plugin_loaded)
