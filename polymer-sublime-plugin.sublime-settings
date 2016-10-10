@@ -9,6 +9,8 @@
   "warning_icon": "warning.png",
   "static_completions": {
     "tags": [
+      ["dom-bind v1", "<template is=\"dom-bind\">\n\t${0:content}\n</template>"],
+      ["dom-bind v2", "<dom-bind>\n\t<template>\n\t\t${0:content}\n\t</template>\n</dom-bind>"],
       ["dom-repeat v1", "<template is=\"dom-repeat\" items=\"[[${1:items}]]\">\n\t${0:[[item.name]]}\n</dom-repeat>"],
       ["dom-repeat v2", "<dom-repeat items=\"[[${1:items}]]\">\n\t<template>\n\t\t${0:[[item.name]]}\n\t</template>\n</dom-repeat>"],
       ["dom-if v1", "<template is=\"dom-if\" if=\"[[${1:conditional}]]\">\n\t${0}\n</template>"],

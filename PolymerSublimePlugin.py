@@ -284,7 +284,7 @@ class PolymerSublimePlugin:
     if definition is not None and 'elements' in definition:
       for element in definition['elements']:
         tagname = element['tagname']
-        if tagname == 'dom-if' or tagname == 'dom-repeat' or tagname == 'dom-module':
+        if tagname.startswith('dom-'):
           continue
         m_start = re.search(r'<%s(.*)>' % tagname, element['description'])
         m_end = re.search(r'</%s>' % tagname, element['description'])
