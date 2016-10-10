@@ -278,8 +278,15 @@ class PolymerSublimePlugin:
     completions = []
 
     if scope_name == 'text.html.basic':
-      completions = completions + Settings.get_static_completions()['tags']
       definition = Bridge.get_definition(view.file_name(), line, column)
+      begins_with_tag = view.substr(locations[0]-1) == '<'
+      # Add static completions.
+      if begins_with_tag:
+        for static_completion in Settings.get_static_completions()['tags']:
+          static_completion[1] = static_completion[1][1:]
+          completions.append(static_completion)
+      else:
+        completions = completions + Settings.get_static_completions()['tags']
 
       if definition is not None:
         if 'elements' in definition:
@@ -291,9 +298,10 @@ class PolymerSublimePlugin:
             m_start = re.search(r'<%s(.*)>' % tagname, el['description'])
             m_end = re.search(r'</%s>' % tagname, el['description'])
             if m_start and m_end:
-              completions.append([tagname, el['description'][m_start.start():m_end.end()]])
+              expandTo = el['description'][m_start.start():m_end.end()]
             else:
-              completions.append([tagname, el['expandTo']])
+              expandTo = el['expandTo']
+            completions.append([tagname, expandTo[1:] if begins_with_tag else expandTo])
     elif 'text.html.basic meta.tag.custom.html' in scope_name:
       definition = Bridge.get_definition(view.file_name(), line, column)
 
@@ -327,4 +335,3 @@ def plugin_loaded():
 
 def plugin_unloaded():
   PolymerSublimePlugin.plugin_unloaded()
-
