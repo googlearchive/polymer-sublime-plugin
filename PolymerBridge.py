@@ -1,8 +1,15 @@
 import os
 import subprocess
 import json
+import sublime
 from functools import partial
-from .PolymerSettings import PolymerSettings
+
+_ST3 = int(sublime.version()) >= 3000
+
+if _ST3:
+  from .PolymerSettings import PolymerSettings
+else:
+  from PolymerSettings import *
 
 class PolymerBridge:
   processes = {}
@@ -24,30 +31,30 @@ class PolymerBridge:
                     stderr=subprocess.STDOUT)
 
   @staticmethod
-  def kill(project_path):
-    if project_path not in PolymerBridge.processes:
+  def kill(folder):
+    if folder not in PolymerBridge.processes:
       return
-    PolymerBridge.processes[project_path].kill()
-    del PolymerBridge.processes[project_path]
+    PolymerBridge.processes[folder].kill()
+    del PolymerBridge.processes[folder]
 
   @staticmethod
-  def get_project_process(project_path):
-    if project_path not in PolymerBridge.processes:
+  def get_project_process(folder):
+    if folder not in PolymerBridge.processes:
       process = PolymerBridge.create_process()
-      out = PolymerBridge.send_message(process, PolymerBridge.init_project_command(project_path))
-      PolymerBridge.processes[project_path] = process
+      out = PolymerBridge.send_message(process, PolymerBridge.init_project_command(folder))
+      PolymerBridge.processes[folder] = process
       if out['kind'] == 'resolution':
-        PolymerBridge.processes[project_path] = process
+        PolymerBridge.processes[folder] = process
       else:
         return None
-    return PolymerBridge.processes[project_path]
+    return PolymerBridge.processes[folder]
 
   @staticmethod
-  def make_project_processes(project_data):
-    if project_data is None:
+  def make_project_processes(folders):
+    if folders is None:
       return
-    for folder in project_data['folders']:
-      PolymerBridge.get_project_process(folder['path'])
+    for folder in folders:
+      PolymerBridge.get_project_process(folder)
 
   @staticmethod
   def send_message(process, input):
@@ -57,7 +64,7 @@ class PolymerBridge:
     process.stdin.flush()
     out = process.stdout.readline()
     return json.loads(out.decode())['value']
-
+  
   @staticmethod
   def encode_command(value):
     PolymerBridge.cmd_id+=1

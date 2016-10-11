@@ -1,9 +1,16 @@
 import re
 import sublime
-from .PolymerSettings import PolymerSettings
-from .PolymerBridge import PolymerBridge
 
-class PolymerSublimePlugin:
+_ST3 = int(sublime.version()) >= 3000
+
+if _ST3:
+  from .PolymerSettings import PolymerSettings
+  from .PolymerBridge import PolymerBridge
+else:
+  from PolymerSettings import *
+  from PolymerBridge import *
+
+class PolymerSublimePlugin():
   @staticmethod
   def show_warnings(view, warnings):
     if view is None or warnings is None:
@@ -17,45 +24,49 @@ class PolymerSublimePlugin:
       end_position = view.text_point(srange['end']['line'], 0)
       regions.append(sublime.Region(start_position + srange['start']['column'],
           end_position + srange['end']['column']))
+    if _ST3:
+      flags = sublime.DRAW_EMPTY | sublime.DRAW_NO_FILL | sublime.DRAW_NO_OUTLINE | sublime.DRAW_SQUIGGLY_UNDERLINE
+    else:
+      flags = sublime.DRAW_EMPTY | sublime.DRAW_OUTLINED
 
     view.erase_regions(key)
-    view.add_regions(key, regions, 'polymer_analyzer', PolymerSettings.get_warning_icon(),
-        sublime.DRAW_EMPTY |
-        sublime.DRAW_NO_FILL |
-        sublime.DRAW_NO_OUTLINE |
-        sublime.DRAW_SQUIGGLY_UNDERLINE)
+    view.add_regions(key, regions, 'keyword', PolymerSettings.get_warning_icon(), flags)
 
   @staticmethod
   def plugin_loaded(self):
     if PolymerSettings.debugging():
       print('plugin_loaded')
+      
     for window in sublime.windows():
-      if window.project_data() is not None:
-        PolymerBridge.make_project_processes(window.project_data())
-        if window.active_view() is not None:
-          PolymerSublimePlugin.show_warnings(window.active_view(),
-            PolymerBridge.get_warnings(window.active_view().file_name()))
+      PolymerBridge.make_project_processes(window.folders())
+      view = window.active_view()
+      if view is not None:
+        PolymerSublimePlugin.show_warnings(view,
+          PolymerBridge.get_warnings(window.active_view().file_name()))
 
   @staticmethod
   def plugin_unloaded():
     if PolymerSettings.debugging():
       print('plugin_unloaded')
+
     for path in PolymerBridge.get_active_projects():
       PolymerBridge.kill(path)
 
+  @staticmethod
   def on_activated(view):
     if PolymerSettings.debugging():
       print('on_activated')
-    project_data = sublime.active_window().project_data()
-    if project_data is None:
+    if view.window() is None:
       return
-    PolymerBridge.make_project_processes(project_data)
+
+    PolymerBridge.make_project_processes(view.window().folders())
     PolymerSublimePlugin.show_warnings(view, PolymerBridge.get_warnings(view.file_name()))
 
   @staticmethod
   def on_modified(view):
     if PolymerSettings.debugging():
       print('on_modified')
+
     PolymerBridge.notify_file_changed(view.file_name(),
         view.substr(sublime.Region(0, view.size())) if view.is_dirty() else None)
     PolymerSublimePlugin.show_warnings(view, PolymerBridge.get_warnings(view.file_name()))
@@ -64,16 +75,15 @@ class PolymerSublimePlugin:
   def on_deactivated(view):
     if PolymerSettings.debugging():
       print('on_deactivated')
-    process_project = PolymerBridge.get_active_projects()
-    active_projects = []
 
+    process_project = PolymerBridge.get_active_projects()
+    active_folders = []
     for window in sublime.windows():
-      if window.project_data() is not None:
-        for folder in window.project_data()['folders']:
-          active_projects.append(folder['path'])
+      for folder in window.folders():
+        active_folders.append(folder)
 
     for path in process_project:
-      if path not in active_projects:
+      if path not in active_folders:
         PolymerBridge.kill(path)
 
   @staticmethod
@@ -110,7 +120,7 @@ class PolymerSublimePlugin:
       if begins_with_tag:
         for static_completion in PolymerSettings.get_static_completions()['tags']:
           static_completion[1] = static_completion[1][1:]
-          completions.append(static_completion)
+          completions.append((static_completion[0], static_completion[1]))
       else:
         completions = completions + PolymerSettings.get_static_completions()['tags']
 
@@ -127,14 +137,14 @@ class PolymerSublimePlugin:
               expandTo = el['description'][m_start.start():m_end.end()]
             else:
               expandTo = el['expandTo']
-            completions.append([tagname, expandTo[1:] if begins_with_tag else expandTo])
+            completions.append((tagname, expandTo[1:] if begins_with_tag else expandTo))
     elif 'text.html.basic meta.tag.custom.html' in scope_name:
       definition = PolymerBridge.get_definition(view.file_name(), line, column)
 
       if 'attributes' in definition:
         for attr in definition['attributes']:
           # If the type isn't a boolean then add `attr=""` otherwise add `attr`.
-          completions.append([attr['name'],
+          completions.append((attr['name'],
               attr['name'] if attr['type'] == 'boolean'
-              else '%s="${0:%s}"' % (attr['name'], attr['type'])])
+              else '%s="${0:%s}"' % (attr['name'], attr['type'])))
     return completions
