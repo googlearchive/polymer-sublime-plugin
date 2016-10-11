@@ -1,181 +1,7 @@
-import os
 import re
-import subprocess
-import json
-from functools import partial
-
 import sublime
-import sublime_plugin
-
-ST3 = int(sublime.version()) >= 3000
-DEBUGGING = False
-PLUGIN_NAME = 'polymer-sublime-plugin'
-
-
-class Settings:
-  config = None
-
-  @staticmethod
-  def get(key):
-    if Settings.config is None:
-      Settings.config = sublime.load_settings('%s.sublime-settings' % PLUGIN_NAME)
-    return Settings.config.get(key)
-
-  @staticmethod
-  def get_node_path():
-    return Settings.get('node_path')[sublime.platform()]
-
-  @staticmethod
-  def get_analyzer_path():
-    return os.path.dirname(os.path.realpath(__file__)) + Settings.get('polymer_analyzer')
-
-  @staticmethod
-  def get_warning_icon():
-    return 'Packages/%s/%s' % (PLUGIN_NAME, Settings.get('warning_icon'))
-
-  @staticmethod
-  def get_debounce_delay():
-    return Settings.get('debounce_delay')
-
-  @staticmethod
-  def get_static_completions():
-    return Settings.get('static_completions')
-
-
-class Utils:
-  debouncers = {}
-  debouncer_id = 0
-
-  @staticmethod
-  def debounce(key, func, view=None):
-    Utils.debouncer_id += 1
-    current_debouncer_id = Utils.debouncer_id
-    Utils.debouncers[key] = current_debouncer_id
-
-    def callback():
-      debouncer_id = Utils.debouncers.get(key, None)
-      if debouncer_id == current_debouncer_id:
-        func(view)
-
-    if ST3:
-        set_timeout = sublime.set_timeout_async
-    else:
-        set_timeout = sublime.set_timeout
-
-    set_timeout(callback, Settings.get_debounce_delay())
-
-
-class Bridge:
-  processes = {}
-  cmd_id = 0
-
-  @staticmethod
-  def get_active_projects():
-    return list(Bridge.processes)
-
-  @staticmethod
-  def get_command():
-    return [Settings.get_node_path(), Settings.get_analyzer_path()]
-
-  @staticmethod
-  def create_process():
-    return subprocess.Popen(Bridge.get_command(),
-                    stdout=subprocess.PIPE,
-                    stdin=subprocess.PIPE,
-                    stderr=subprocess.STDOUT)
-
-  @staticmethod
-  def kill(project_path):
-    if project_path not in Bridge.processes:
-      return
-    Bridge.processes[project_path].kill()
-    del Bridge.processes[project_path]
-
-  @staticmethod
-  def get_project_process(project_path):
-    if project_path not in Bridge.processes:
-      process = Bridge.create_process()
-      out = Bridge.send_message(process, Bridge.init_project_command(project_path))
-      Bridge.processes[project_path] = process
-      if out['kind'] == 'resolution':
-        Bridge.processes[project_path] = process
-      else:
-        return None
-    return Bridge.processes[project_path]
-
-  @staticmethod
-  def make_project_processes(project_data):
-    if project_data is None:
-      return
-    for folder in project_data['folders']:
-      Bridge.get_project_process(folder['path'])
-
-  @staticmethod
-  def send_message(process, input):
-    if DEBUGGING:
-      print('send_message: ', input)
-    process.stdin.write((input + '\n').encode('utf8'))
-    process.stdin.flush()
-    out = process.stdout.readline()
-    return json.loads(out.decode())['value']
-
-  @staticmethod
-  def encode_command(value):
-    Bridge.cmd_id+=1
-    return json.dumps({'id': Bridge.cmd_id, 'value': value})
-
-  @staticmethod
-  def init_project_command(basedir):
-    return Bridge.encode_command({'kind': 'init', 'basedir': basedir})
-
-  @staticmethod
-  def get_warnings_command(local_path):
-    return Bridge.encode_command({'kind': 'getWarningsFor', 'localPath': local_path})
-
-  @staticmethod
-  def file_changed_command(contents, local_path):
-    return Bridge.encode_command({'kind': 'fileChanged', 'localPath': local_path,
-        'contents': contents})
-
-  @staticmethod
-  def get_definition_command(line, column, local_path):
-    return Bridge.encode_command({'kind': 'getTypeaheadCompletionsFor', 'localPath': local_path,
-        'position': {'line': line, 'column': column}})
-
-  @staticmethod
-  def get_project_path_from(file_name):
-    for path in Bridge.processes:
-      if file_name.find(path) == 0:
-        return path
-    return None
-
-  @staticmethod
-  def execute_command(file_name, fn):
-    if file_name is None:
-      return
-    project_path = Bridge.get_project_path_from(file_name)
-    if project_path is None:
-      return
-    process = Bridge.processes[project_path]
-    relative_file_name = os.path.relpath(file_name, project_path)
-    out = Bridge.send_message(process, fn(relative_file_name))
-    if out['kind'] == 'resolution' and 'resolution' in out:
-      return out['resolution']
-    else:
-      return {}
-
-  @staticmethod
-  def get_warnings(file_name):
-    return Bridge.execute_command(file_name, Bridge.get_warnings_command)
-
-  @staticmethod
-  def notify_file_changed(file_name, contents):
-    return Bridge.execute_command(file_name, partial(Bridge.file_changed_command, contents))
-
-  @staticmethod
-  def get_definition(file_name, line, column):
-    return Bridge.execute_command(file_name, partial(Bridge.get_definition_command, line, column))
-
+from .PolymerSettings import PolymerSettings
+from .PolymerBridge import PolymerBridge
 
 class PolymerSublimePlugin:
   @staticmethod
@@ -193,7 +19,7 @@ class PolymerSublimePlugin:
           end_position + srange['end']['column']))
 
     view.erase_regions(key)
-    view.add_regions(key, regions, 'polymer_analyzer', Settings.get_warning_icon(),
+    view.add_regions(key, regions, 'polymer_analyzer', PolymerSettings.get_warning_icon(),
         sublime.DRAW_EMPTY |
         sublime.DRAW_NO_FILL |
         sublime.DRAW_NO_OUTLINE |
@@ -201,44 +27,44 @@ class PolymerSublimePlugin:
 
   @staticmethod
   def plugin_loaded(self):
-    if DEBUGGING:
+    if PolymerSettings.debugging():
       print('plugin_loaded')
     for window in sublime.windows():
       if window.project_data() is not None:
-        Bridge.make_project_processes(window.project_data())
+        PolymerBridge.make_project_processes(window.project_data())
         if window.active_view() is not None:
           PolymerSublimePlugin.show_warnings(window.active_view(),
-            Bridge.get_warnings(window.active_view().file_name()))
+            PolymerBridge.get_warnings(window.active_view().file_name()))
 
   @staticmethod
   def plugin_unloaded():
-    if DEBUGGING:
+    if PolymerSettings.debugging():
       print('plugin_unloaded')
-    for path in Bridge.get_active_projects():
-      Bridge.kill(path)
+    for path in PolymerBridge.get_active_projects():
+      PolymerBridge.kill(path)
 
   def on_activated(view):
-    if DEBUGGING:
+    if PolymerSettings.debugging():
       print('on_activated')
     project_data = sublime.active_window().project_data()
     if project_data is None:
       return
-    Bridge.make_project_processes(project_data)
-    PolymerSublimePlugin.show_warnings(view, Bridge.get_warnings(view.file_name()))
+    PolymerBridge.make_project_processes(project_data)
+    PolymerSublimePlugin.show_warnings(view, PolymerBridge.get_warnings(view.file_name()))
 
   @staticmethod
   def on_modified(view):
-    if DEBUGGING:
+    if PolymerSettings.debugging():
       print('on_modified')
-    Bridge.notify_file_changed(view.file_name(),
+    PolymerBridge.notify_file_changed(view.file_name(),
         view.substr(sublime.Region(0, view.size())) if view.is_dirty() else None)
-    PolymerSublimePlugin.show_warnings(view, Bridge.get_warnings(view.file_name()))
+    PolymerSublimePlugin.show_warnings(view, PolymerBridge.get_warnings(view.file_name()))
 
   @staticmethod
   def on_deactivated(view):
-    if DEBUGGING:
+    if PolymerSettings.debugging():
       print('on_deactivated')
-    process_project = Bridge.get_active_projects()
+    process_project = PolymerBridge.get_active_projects()
     active_projects = []
 
     for window in sublime.windows():
@@ -248,15 +74,15 @@ class PolymerSublimePlugin:
 
     for path in process_project:
       if path not in active_projects:
-        Bridge.kill(path)
+        PolymerBridge.kill(path)
 
   @staticmethod
   def show_popup(view, point):
-    if DEBUGGING:
+    if PolymerSettings.debugging():
       print('show_popup')
 
     location = view.line(point).a
-    warnings = Bridge.get_warnings(view.file_name())
+    warnings = PolymerBridge.get_warnings(view.file_name())
     warning_msg = ''
 
     for warning in warnings:
@@ -278,15 +104,15 @@ class PolymerSublimePlugin:
     completions = []
 
     if scope_name == 'text.html.basic':
-      definition = Bridge.get_definition(view.file_name(), line, column)
+      definition = PolymerBridge.get_definition(view.file_name(), line, column)
       begins_with_tag = view.substr(locations[0]-1) == '<'
       # Add static completions.
       if begins_with_tag:
-        for static_completion in Settings.get_static_completions()['tags']:
+        for static_completion in PolymerSettings.get_static_completions()['tags']:
           static_completion[1] = static_completion[1][1:]
           completions.append(static_completion)
       else:
-        completions = completions + Settings.get_static_completions()['tags']
+        completions = completions + PolymerSettings.get_static_completions()['tags']
 
       if definition is not None:
         if 'elements' in definition:
@@ -303,7 +129,7 @@ class PolymerSublimePlugin:
               expandTo = el['expandTo']
             completions.append([tagname, expandTo[1:] if begins_with_tag else expandTo])
     elif 'text.html.basic meta.tag.custom.html' in scope_name:
-      definition = Bridge.get_definition(view.file_name(), line, column)
+      definition = PolymerBridge.get_definition(view.file_name(), line, column)
 
       if 'attributes' in definition:
         for attr in definition['attributes']:
@@ -312,26 +138,3 @@ class PolymerSublimePlugin:
               attr['name'] if attr['type'] == 'boolean'
               else '%s="${0:%s}"' % (attr['name'], attr['type'])])
     return completions
-
-class PolymerAnalyzerEvents(sublime_plugin.EventListener):
-  def on_activated_async(self, view):
-    Utils.debounce('activated_%s' % view.file_name(), PolymerSublimePlugin.on_activated, view)
-
-  def on_modified_async(self, view):
-    Utils.debounce('modified_%s' % view.file_name(), PolymerSublimePlugin.on_modified, view)
-
-  def on_deactivated_async(self, view):
-    Utils.debounce('deactivated_%s' % view.file_name(), PolymerSublimePlugin.on_deactivated, view)
-
-  def on_hover(self, view, point, hover_zone):
-    if hover_zone == sublime.HOVER_GUTTER and not view.is_popup_visible():
-      PolymerSublimePlugin.show_popup(view, point)
-
-  def on_query_completions(self, view, prefix, locations):
-    return PolymerSublimePlugin.get_query_completions(view, prefix, locations)
-
-def plugin_loaded():
-  Utils.debounce('plugin_loaded', PolymerSublimePlugin.plugin_loaded)
-
-def plugin_unloaded():
-  PolymerSublimePlugin.plugin_unloaded()

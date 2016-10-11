@@ -5,8 +5,9 @@
     "windows": "C:/Program Files/nodejs/node.exe"
   },
   "polymer_analyzer": "/node_modules/polymer-analyzer/lib/editor-service/polymer-editor-server",
-  "debounce_delay": 200,
+  "debounce_delay": 100,
   "warning_icon": "warning.png",
+  "debugging": false,
   "static_completions": {
     "tags": [
       ["dom-bind v1", "<template is=\"dom-bind\">\n\t${0:content}\n</template>"],
