@@ -21,7 +21,7 @@ class PolymerBridge:
 
   @staticmethod
   def get_command():
-    return [PolymerSettings.get_node_path(), PolymerSettings.get_analyzer_path()]
+    return PolymerSettings.get_node_path().split('+') + [PolymerSettings.get_analyzer_path()]
 
   @staticmethod
   def create_process():

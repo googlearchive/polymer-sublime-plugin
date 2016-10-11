@@ -1,6 +1,6 @@
 {
   "node_path": {
-    "osx": "/usr/local/bin/node",
+    "osx": "/usr/bin/env+node",
     "linux": "/usr/bin/nodejs",
     "windows": "C:/Program Files/nodejs/node.exe"
   },
