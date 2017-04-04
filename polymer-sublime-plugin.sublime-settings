@@ -16,7 +16,7 @@
       ["dom-if v1", "<template is=\"dom-if\" if=\"[[${1:conditional}]]\">\n\t${0}\n</template>"],
       ["dom-if v2", "<dom-if if=\"[[${1:conditional}]]\">\n\t<template>\n\t\t${0}\n\t</template>\n</dom-if>"],
       ["dom-module v1", "<dom-module id=\"${1:x-foo}\">\n\t<template>\n\t\t<style>\n\t\t\t:host {\n\t\t\t\tdisplay: block;\n\t\t\t}\n\t\t</style>\n\t\t${0:Hello world}\n\t</template>\n\t<script>\n\t\tPolymer({\n\t\t\tis: '$1'\n\t\t});\n\t</script>\n</dom-module>"],
-      ["dom-module v2", "<dom-module id=\"${1:x-foo}\">\n\t<template>\n\t\t<style>\n\t\t\t:host {\n\t\t\t\tdisplay: block;\n\t\t\t}\n\t\t</style>\n\t\t${0:Hello world}\n\t</template>\n\t<script>\n\t\tPolymer({\n\t\t\tis: '$1'\n\t\t});\n\t</script>\n</dom-module>"]
+      ["dom-module v2", "<dom-module id=\"${1:x-foo}\">\n\t<template>\n\t\t<style>\n\t\t\t:host {\n\t\t\t\tdisplay: block;\n\t\t\t}\n\t\t</style>\n\t\t${0:Hello world}\n\t</template>\n\t<script>\n\t\tclass ${2:xFoo} extends Polymer.Element {\n\t\t\tstatic get is() { return '${1:x-foo}'; }\n\t\t}\n\t\twindow.customElements.define(${2:xFoo}.is, ${2:xFoo});\n\t</script>\n</dom-module>"]
     ]
   }
 }
